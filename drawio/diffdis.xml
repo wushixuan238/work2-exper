@@ -1,0 +1,247 @@
+<mxfile host="app.diagrams.net" modified="2023-07-30T00:11:33Z" agent="5.0 (Windows)" etag="your-etag" version="13.9.3" type="device">
+  <diagram id="diffdis-diagram" name="DiffDis Architecture">
+    <mxGraphModel dx="1422" dy="798" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- 左上角的输入图像 -->
+        <mxCell id="input_image" value="" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;aspect=fixed;imageAspect=0;image=data:image/svg+xml,&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;100&quot; height=&quot;100&quot; viewBox=&quot;0 0 100 100&quot;&gt;&lt;rect width=&quot;100&quot; height=&quot;100&quot; fill=&quot;#87CEEB&quot;/&gt;&lt;path d=&quot;M20,80 Q50,20 80,80&quot; fill=&quot;none&quot; stroke=&quot;#654321&quot; stroke-width=&quot;5&quot;/&gt;&lt;/svg&gt;" parent="1" vertex="1">
+          <mxGeometry x="50" y="120" width="110" height="110" as="geometry" />
+        </mxCell>
+        
+        <!-- 第一个VAE模块 -->
+        <mxCell id="vae1" value="VAE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#d6b656;fontSize=16;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="240" y="135" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="vae1_snowflake" value="" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;aspect=fixed;imageAspect=0;image=data:image/svg+xml,&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot;&gt;&lt;path d=&quot;M12,0 L12,24 M18,6 L6,18 M6,6 L18,18 M0,12 L24,12&quot; stroke=&quot;#87CEFA&quot; stroke-width=&quot;2&quot; fill=&quot;none&quot;/&gt;&lt;/svg&gt;" parent="1" vertex="1">
+          <mxGeometry x="270" y="220" width="20" height="20" as="geometry" />
+        </mxCell>
+        
+        <!-- 噪声采样区域 -->
+        <mxCell id="noise_box" value="Pure Noise&#xa;N(0,I)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#d79b00;fontSize=14;align=center;" parent="1" vertex="1">
+          <mxGeometry x="50" y="300" width="110" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- 编码区域 -->
+        <mxCell id="encoding_area" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;dashed=1;strokeWidth=2;strokeColor=#666666;" parent="1" vertex="1">
+          <mxGeometry x="400" y="100" width="120" height="150" as="geometry" />
+        </mxCell>
+        
+        <!-- 编码区域中的层 -->
+        <mxCell id="encoding_layer1" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;" parent="1" vertex="1">
+          <mxGeometry x="410" y="110" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="encoding_layer2" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;" parent="1" vertex="1">
+          <mxGeometry x="420" y="155" width="100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="encoding_layer3" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;" parent="1" vertex="1">
+          <mxGeometry x="430" y="200" width="100" height="40" as="geometry" />
+        </mxCell>
+        
+        <!-- Batch-Discriminative Embedding -->
+        <mxCell id="bde_box" value="Batch-Discriminative&#xa;Embedding" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D8BFD8;strokeColor=#9673a6;fontSize=14;align=center;" parent="1" vertex="1">
+          <mxGeometry x="600" y="300" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="bde_snowflake" value="" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;aspect=fixed;imageAspect=0;image=data:image/svg+xml,&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot;&gt;&lt;path d=&quot;M12,0 L12,24 M18,6 L6,18 M6,6 L18,18 M0,12 L24,12&quot; stroke=&quot;#87CEFA&quot; stroke-width=&quot;2&quot; fill=&quot;none&quot;/&gt;&lt;/svg&gt;" parent="1" vertex="1">
+          <mxGeometry x="700" y="365" width="20" height="20" as="geometry" />
+        </mxCell>
+        
+        <!-- Cb Circle -->
+        <mxCell id="cb_circle" value="Cb" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#000000;fontSize=14;align=center;" parent="1" vertex="1">
+          <mxGeometry x="530" y="175" width="40" height="40" as="geometry" />
+        </mxCell>
+        
+        <!-- Cc Circle -->
+        <mxCell id="cc_circle" value="Cc" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#000000;fontSize=14;align=center;" parent="1" vertex="1">
+          <mxGeometry x="620" y="175" width="40" height="40" as="geometry" />
+        </mxCell>
+        
+        <!-- UNet 区域 -->
+        <mxCell id="unet_area" value="UNet" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=16;fontStyle=1;align=center;glass=0;shadow=0;" parent="1" vertex="1">
+          <mxGeometry x="800" y="135" width="190" height="120" as="geometry" />
+        </mxCell>
+        
+        <!-- UNet 内部组件 -->
+        <mxCell id="unet_component1" value="..." style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=16;" parent="1" vertex="1">
+          <mxGeometry x="810" y="175" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="unet_component2" value="DBIA" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#00CCCC;strokeColor=#006666;fontSize=14;fontStyle=1;fontColor=#FFFFFF" parent="1" vertex="1">
+          <mxGeometry x="875" y="175" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="unet_component3" value="..." style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=16;" parent="1" vertex="1">
+          <mxGeometry x="940" y="175" width="40" height="40" as="geometry" />
+        </mxCell>
+        
+        <!-- Injector 组件 -->
+        <mxCell id="injector1" value="" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#B0E0E6;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="770" y="65" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="injector2" value="" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#B0E0E6;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="840" y="65" width="60" height="30" as="geometry" />
+        </mxCell>
+        
+        <!-- 下方的去噪过程区域 -->
+        <mxCell id="denoising_area" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;dashed=0;strokeWidth=1;strokeColor=#666666;" parent="1" vertex="1">
+          <mxGeometry x="600" y="430" width="120" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="denoising_layer1" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;" parent="1" vertex="1">
+          <mxGeometry x="610" y="440" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="denoising_layer2" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;" parent="1" vertex="1">
+          <mxGeometry x="610" y="470" width="100" height="20" as="geometry" />
+        </mxCell>
+        
+        <!-- 第二个VAE模块 -->
+        <mxCell id="vae2" value="VAE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#d6b656;fontSize=16;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="240" y="430" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="vae2_snowflake" value="" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;aspect=fixed;imageAspect=0;image=data:image/svg+xml,&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;24&quot; height=&quot;24&quot; viewBox=&quot;0 0 24 24&quot;&gt;&lt;path d=&quot;M12,0 L12,24 M18,6 L6,18 M6,6 L18,18 M0,12 L24,12&quot; stroke=&quot;#87CEFA&quot; stroke-width=&quot;2&quot; fill=&quot;none&quot;/&gt;&lt;/svg&gt;" parent="1" vertex="1">
+          <mxGeometry x="270" y="515" width="20" height="20" as="geometry" />
+        </mxCell>
+        
+        <!-- 输出图像 -->
+        <mxCell id="output_image" value="" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;aspect=fixed;imageAspect=0;image=data:image/svg+xml,&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;100&quot; height=&quot;100&quot; viewBox=&quot;0 0 100 100&quot;&gt;&lt;rect width=&quot;100&quot; height=&quot;100&quot; fill=&quot;#000000&quot;/&gt;&lt;path d=&quot;M20,80 Q50,20 80,80&quot; fill=&quot;none&quot; stroke=&quot;#FFFFFF&quot; stroke-width=&quot;5&quot;/&gt;&lt;/svg&gt;" parent="1" vertex="1">
+          <mxGeometry x="50" y="415" width="110" height="110" as="geometry" />
+        </mxCell>
+        
+        <!-- 箭头连接 -->
+        <!-- 输入图像 到 VAE1 -->
+        <mxCell id="arrow1" value="" style="endArrow=classic;html=1;strokeWidth=2;fillColor=#000000;strokeColor=#000000;" parent="1" source="input_image" target="vae1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="160" y="175" as="sourcePoint" />
+            <mxPoint x="210" y="175" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- VAE1 到 编码区域 -->
+        <mxCell id="arrow2" value="" style="endArrow=classic;html=1;strokeWidth=2;fillColor=#000000;strokeColor=#000000;" parent="1" source="vae1" target="encoding_area" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="320" y="175" as="sourcePoint" />
+            <mxPoint x="370" y="175" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 噪声 到 编码区域 -->
+        <mxCell id="arrow3" value="sample" style="endArrow=classic;html=1;strokeWidth=2;fillColor=#000000;strokeColor=#000000;entryX=0;entryY=0.75;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" parent="1" source="noise_box" target="encoding_area" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="160" y="330" as="sourcePoint" />
+            <mxPoint x="380" y="220" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="300" y="330" />
+              <mxPoint x="300" y="213" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 编码区域 到 Cb -->
+        <mxCell id="arrow4" value="" style="endArrow=classic;html=1;strokeWidth=2;fillColor=#000000;strokeColor=#000000;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" target="cb_circle" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="520" y="195" as="sourcePoint" />
+            <mxPoint x="530" y="195" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Cb 到 Cc -->
+        <mxCell id="arrow5" value="" style="endArrow=classic;html=1;strokeWidth=2;fillColor=#000000;strokeColor=#000000;" parent="1" source="cb_circle" target="cc_circle" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="570" y="195" as="sourcePoint" />
+            <mxPoint x="620" y="195" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- T 到 UNet -->
+        <mxCell id="arrow_t" value="T" style="endArrow=classic;html=1;strokeWidth=2;fillColor=#000000;strokeColor=#000000;entryX=0;entryY=0.25;entryDx=0;entryDy=0;" parent="1" target="unet_area" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="700" y="165" as="sourcePoint" />
+            <mxPoint x="750" y="165" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Cc 到 UNet -->
+        <mxCell id="arrow6" value="" style="endArrow=classic;html=1;strokeWidth=2;fillColor=#000000;strokeColor=#000000;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" parent="1" source="cc_circle" target="unet_area" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="670" y="195" as="sourcePoint" />
+            <mxPoint x="720" y="195" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Injectors 到 UNet -->
+        <mxCell id="arrow_inj1" value="" style="endArrow=classic;html=1;strokeWidth=2;fillColor=#000000;strokeColor=#000000;entryX=0.158;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="injector1" target="unet_area" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="790" y="95" as="sourcePoint" />
+            <mxPoint x="790" y="135" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arrow_inj2" value="" style="endArrow=classic;html=1;strokeWidth=2;fillColor=#000000;strokeColor=#000000;entryX=0.42;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="injector2" target="unet_area" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="870" y="95" as="sourcePoint" />
+            <mxPoint x="870" y="135" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- UNet 到 去噪区域 -->
+        <mxCell id="arrow7" value="" style="endArrow=classic;html=1;strokeWidth=2;fillColor=#000000;strokeColor=#000000;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="unet_area" target="denoising_area" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="880" y="340" as="sourcePoint" />
+            <mxPoint x="730" y="390" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="895" y="465" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 去噪区域 到 VAE2 -->
+        <mxCell id="arrow8" value="denoise" style="endArrow=classic;html=1;strokeWidth=2;fillColor=#000000;strokeColor=#000000;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="1" target="vae2" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="600" y="470" as="sourcePoint" />
+            <mxPoint x="550" y="470" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- VAE2 到 输出图像 -->
+        <mxCell id="arrow9" value="" style="endArrow=classic;html=1;strokeWidth=2;fillColor=#000000;strokeColor=#000000;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="vae2" target="output_image" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="240" y="470" as="sourcePoint" />
+            <mxPoint x="190" y="470" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- BDE 到 去噪区域 -->
+        <mxCell id="arrow10" value="1 step" style="endArrow=classic;html=1;strokeWidth=2;fillColor=#000000;strokeColor=#000000;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="bde_box" target="denoising_area" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="690" y="380" as="sourcePoint" />
+            <mxPoint x="690" y="430" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="690" y="380" />
+              <mxPoint x="660" y="410" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 连接线注释 -->
+        <mxCell id="label_batch" value="Batch-wise Concat" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="80" y="550" width="140" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="circ_batch" value="Cb" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#000000;fontSize=14;align=center;" parent="1" vertex="1">
+          <mxGeometry x="50" y="550" width="30" height="30" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="label_channel" value="Channel-wise Concat" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="430" y="550" width="150" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="circ_channel" value="Cc" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#000000;fontSize=14;align=center;" parent="1" vertex="1">
+          <mxGeometry x="400" y="550" width="30" height="30" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="label_injector" value="Injector" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=14;" parent="1" vertex="1">
+          <mxGeometry x="830" y="550" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="inj_sample" value="" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#B0E0E6;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="780" y="550" width="50" height="30" as="geometry" />
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
