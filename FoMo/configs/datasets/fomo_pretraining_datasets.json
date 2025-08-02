@@ -16,7 +16,6 @@
     0.1,
     0.2
   ],
-  //list of probablities to sample the dataloader. If none all datasets have the same probability
   "task": "mae",
   "modality_channels": {
     "0": "planet-r",

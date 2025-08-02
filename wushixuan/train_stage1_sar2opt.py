@@ -3,33 +3,22 @@
 import argparse
 import json
 import os
+
 import torch
 import torch.nn as nn
+import wandb
+from einops import rearrange
+
+from FoMo.model_zoo.multimodal_mae import MultiSpectralViT, Transformer
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm import tqdm
-import wandb
-from pathlib import Path
-from lpips import LPIPS
-from FoMo.model_zoo.multimodal_mae import MultiSpectralViT
-from wushixuan.models.fomo_shared_autoencoder import FomoSharedAutoencoder
 
-from models.autoencoder import FomoAutoencoder  # 模型定义基本不变
 from FoMo.model_zoo.multimodal_mae import MultiSpectralViT, Transformer
-from utils.config import load_fomo_configs
-from dataset.sar_opt_dataset import SAROptDatasetWithKeys  # 数据集类
-from lpips import LPIPS  # pip install lpips
-
 from yujun.dataset.fomo_dataset import FomoCompatibleDataset
 
+
 # models/fomo_joint_autoencoder.py
-
-import torch
-import torch.nn as nn
-from einops import rearrange
-
-# 假设你已经将FoMo-Net的代码 (multimodal_mae.py) 放到了你的项目中
-from multimodal_mae import MultiSpectralViT, Transformer
 
 
 class FomoJointAutoencoder(nn.Module):
@@ -52,6 +41,7 @@ class FomoJointAutoencoder(nn.Module):
         super().__init__()
 
         self.encoder = fomo_encoder
+        self.patch_size = patch_size
         encoder_dim = self.encoder.transformer.norm.normalized_shape[0]
         num_patches_per_channel = (image_size // patch_size) ** 2
 
@@ -106,9 +96,10 @@ class FomoJointAutoencoder(nn.Module):
     def forward(self, data, modality):
         images, keys = data
         B, C, H, W = images.shape
-        patch_height, patch_width = self.encoder.to_patch_embedding.patch_height, self.encoder.to_patch_embedding.patch_width
-        h_patch_count = H // patch_height
-        w_patch_count = W // patch_width
+        patch_size = self.patch_size
+
+        h_patch_count = H // patch_size
+        w_patch_count = W // patch_size
 
         encoded_tokens = self.encoder(data, pool=False)
 
@@ -120,6 +111,27 @@ class FomoJointAutoencoder(nn.Module):
             raise ValueError(f"Unknown modality: {modality}")
 
         return reconstructed_image, encoded_tokens
+
+
+# 放在你的训练脚本的开头部分
+def custom_collate_fn(batch):
+    """
+    自定义的collate_fn，用于正确处理 (image, keys_list) 的批次。
+    """
+    # batch 是一个列表，每个元素是 (image_tensor, keys_list)
+
+    # 1. 分离图像和keys
+    images = [item[0] for item in batch]
+    keys = [item[1] for item in batch]  # keys现在是 [[9,8,7], [9,8,7], ...]
+
+    # 2. 正常堆叠图像
+    images_batch = torch.stack(images, dim=0)
+
+    # 3. 将keys保持为列表的列表，不转换为张量
+    # 因为对于一个batch，我们只需要一份keys即可
+    keys_batch = keys[0]
+
+    return images_batch, keys_batch
 
 
 def train_stage1_optical_autoencoder(args):
@@ -134,16 +146,51 @@ def train_stage1_optical_autoencoder(args):
     with open(args.config_path, 'r') as f:
         config = json.load(f)
 
+        # --- 关键修改点 ---
+        # MultiSpectralViT 需要一个列表或元组来确定大小，而不是字典。
+        # 我们可以直接使用字典的 values()，或者 keys() 的列表。
+        # 为了保证顺序和长度正确，最安全的是基于keys生成一个列表。
+        # 确保keys是整数并排序，以创建一个连续的列表。
+    modality_keys = sorted([int(k) for k in config['modality_channels'].keys()])
+    # +1 是因为字典中最大的key可能不是len-1
+    num_total_bands = max(modality_keys) + 1
+    # 创建一个简单的列表，其长度足以覆盖所有定义的key
+    modality_channels_for_init = list(range(num_total_bands))
+
+    print(f"DEBUG_INIT: config['modality_channels'].keys() = {config['modality_channels'].keys()}")
+    print(f"DEBUG_INIT: modality_keys = {modality_keys}")
+    print(f"DEBUG_INIT: num_total_bands = {num_total_bands}")
+    print(f"DEBUG_INIT: len(modality_channels_for_init) = {len(modality_channels_for_init)}")
+    print(f"DEBUG_INIT: modality_channels_for_init = {modality_channels_for_init}")
+
+    # 构建用于初始化的configs字典
+    fomo_init_configs = {
+        'single_embedding_layer': True,  # 或者从你的config文件中读取
+        'modality_channels': modality_channels_for_init
+    }
+
     print("Initializing FoMo-Net encoder...")
     fomo_encoder = MultiSpectralViT(
         image_size=args.image_size, patch_size=args.patch_size, channels=1,
         num_classes=1000, dim=args.encoder_dim, depth=args.encoder_depth,
         heads=args.encoder_heads, mlp_dim=args.encoder_mlp_dim,
-        configs={'single_embedding_layer': True, 'modality_channels': config['modality_channels']}
+        configs=fomo_init_configs
     )
 
-    print(f"Loading pretrained FoMo-Net weights from: {args.fomo_ckpt_path}")
-    fomo_encoder.load_state_dict(torch.load(args.fomo_ckpt_path, map_location='cpu'), strict=False)
+    # print(f"Loading pretrained FoMo-Net weights from: {args.fomo_ckpt_path}")
+    # fomo_encoder.load_state_dict(torch.load(args.fomo_ckpt_path, map_location='cpu'), strict=False)
+
+    # 加载预训练权重
+    pretrained_state_dict = torch.load(args.fomo_ckpt_path, map_location='cpu')
+
+    # 移除不匹配的 'pos_embedding' 键
+    if 'pos_embedding' in pretrained_state_dict:
+        print("Ignoring 'pos_embedding' from pretrained checkpoint due to size mismatch.")
+        del pretrained_state_dict['pos_embedding']
+
+    # 加载修改后的 state_dict，使用 strict=False 确保其他不匹配（如分类头）被忽略
+    fomo_encoder.load_state_dict(pretrained_state_dict, strict=False)
+
     print("Pretrained FoMo-Net encoder loaded successfully!")
 
     # 3. 初始化完整的联合自编码器模型
@@ -156,22 +203,30 @@ def train_stage1_optical_autoencoder(args):
 
     # 4. 数据准备
     print("Preparing SAR and Optical datasets...")
-    transform = transforms.Compose([
+    transform_sar = transforms.Compose([
+        transforms.Resize((args.image_size, args.image_size)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5], std=[0.5])
+    ])
+
+    transform_opt = transforms.Compose([
         transforms.Resize((args.image_size, args.image_size)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
     ])
     sar_dataset = FomoCompatibleDataset(
         data_dir=args.sar_data_dir, dataset_name='my_sar_train_dataset',
-        config=config, transform=transform, in_chans=args.sar_channels
+        config=config, transform=transform_sar, in_chans=args.sar_channels
     )
     opt_dataset = FomoCompatibleDataset(
         data_dir=args.opt_data_dir, dataset_name='my_optical_train_dataset',
-        config=config, transform=transform, in_chans=args.opt_channels
+        config=config, transform=transform_opt, in_chans=args.opt_channels
     )
 
-    sar_loader = DataLoader(sar_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
-    opt_loader = DataLoader(opt_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+    sar_loader = DataLoader(sar_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
+                            collate_fn=custom_collate_fn)
+    opt_loader = DataLoader(opt_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
+                            collate_fn=custom_collate_fn)
 
     print(f"Loaded {len(sar_dataset)} SAR images and {len(opt_dataset)} Optical images.")
 
@@ -204,17 +259,17 @@ def train_stage1_optical_autoencoder(args):
 
                 # --- 联合训练步骤 ---
                 # a. SAR分支
-                sar_images, sar_keys_list = next(sar_iter)
+                sar_images, sar_keys = next(sar_iter)  # 直接得到一个tensor和一个list
                 sar_images = sar_images.to(device)
-                sar_data = (sar_images, sar_keys_list[0])  # 假设batch内keys相同
+                sar_data = (sar_images, sar_keys)
 
                 recon_sar_images, _ = model(sar_data, modality='sar')
                 loss_sar = criterion_recon(recon_sar_images, sar_images)
 
                 # b. OPTICAL分支
-                opt_images, opt_keys_list = next(opt_iter)
+                opt_images, opt_keys = next(opt_iter)
                 opt_images = opt_images.to(device)
-                opt_data = (opt_images, opt_keys_list[0])
+                opt_data = (opt_images, opt_keys)
 
                 recon_opt_images, _ = model(opt_data, modality='opt')
                 loss_opt = criterion_recon(recon_opt_images, opt_images)
@@ -265,9 +320,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Stage 1: Finetune a FoMo-Net based Autoencoder on Optical data ONLY")
 
     # --- 路径参数 ---
-    parser.add_argument("--opt_data_dir", type=str, required=True, help="Path to Optical data directory")
-    parser.add_argument("--fomo_config_path", type=str, required=True, help="Path to FoMo-Net config file")
-    parser.add_argument("--fomo_ckpt_path", type=str, required=True, help="Path to pretrained FoMo-Net checkpoint")
+    parser.add_argument("--opt_data_dir", type=str, default='/home/wushixuan/yujun/data/rsdiffusion/sar2opt/trainA',
+                        help="Path to Optical data directory")
+    parser.add_argument("--sar_data_dir", type=str, default='/home/wushixuan/yujun/data/rsdiffusion/sar2opt/trainB',
+                        help="Path to SAR data directory")
+    parser.add_argument("--config_path", type=str,
+                        default='/home/wushixuan/桌面/07/work2-exper/FoMo/configs/datasets/fomo_pretraining_datasets.json',
+                        help="Path to FoMo-Net config file")
+    parser.add_argument("--fomo_ckpt_path", type=str,
+                        default='/home/wushixuan/yujun/data/weights/fomo_single_embedding_layer_weights.pt',
+                        help="Path to pretrained FoMo-Net checkpoint")
     parser.add_argument("--output_dir", type=str, default="./checkpoints_stage1_optical",
                         help="Directory to save checkpoints")
 
@@ -280,7 +342,7 @@ if __name__ == '__main__':
     parser.add_argument("--encoder_dim", type=int, default=768)
     parser.add_argument("--encoder_depth", type=int, default=12)
     parser.add_argument("--encoder_heads", type=int, default=12)
-    parser.add_argument("--encoder_mlp_dim", type=int, default=3072)
+    parser.add_argument("--encoder_mlp_dim", type=int, default=2048)
     parser.add_argument("--decoder_dim", type=int, default=512)
     parser.add_argument("--decoder_depth", type=int, default=8)
     parser.add_argument("--decoder_heads", type=int, default=16)
