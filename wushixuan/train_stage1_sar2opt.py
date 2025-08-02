@@ -9,7 +9,9 @@ from torchvision import transforms
 from tqdm import tqdm
 import wandb
 from pathlib import Path
-
+from lpips import LPIPS
+from FoMo.model_zoo.multimodal_mae import MultiSpectralViT
+from wushixuan.models.fomo_shared_autoencoder import FomoSharedAutoencoder
 
 
 # from models.autoencoder import FomoAutoencoder  # 模型定义基本不变
@@ -35,9 +37,7 @@ class FomoAutoencoder(nn.Module):
         patch_dim = 3 * patch_size * patch_size  # RGB patch
         # self.to_pixels = nn.Linear(decoder_dim, patch_dim)
 
-
     def forward(self, data):
-
         images, _ = data
         reconstructed_image = torch.randn_like(images)
         encoded_tokens = torch.randn(images.shape[0], 1024, 768)  # 假设的token形状
@@ -56,20 +56,19 @@ def train_stage1_optical_autoencoder(args):
 
     # 2. 加载FoMo-Net的配置和预训练编码器
     print("Initializing FoMo-Net encoder...")
-    # ... (与之前版本相同，加载预训练的fomo_encoder) ...
-    configs = ...
+    # 1. 实例化FoMo-Net并加载预训练权重
+    configs = ...  # 加载定义了所有波段和key的配置文件
     fomo_encoder = MultiSpectralViT(...)
     fomo_encoder.load_state_dict(...)
 
-
-    model = FomoAutoencoder(
+    # 2. 实例化完整的自编码器模型
+    model = FomoSharedAutoencoder(
         fomo_encoder=fomo_encoder,
         decoder_dim=args.decoder_dim,
         ...
-        num_channels=3 # 明确告知模型处理3通道
     ).to(device)
 
-    # 4. 数据准备 (核心改动)
+    # 4. 数据准备
     print("Preparing Optical dataset...")
     transform = transforms.Compose([
         transforms.Resize((args.image_size, args.image_size)),
@@ -82,34 +81,30 @@ def train_stage1_optical_autoencoder(args):
     # 假设它们是 [2, 3, 4]
     # optical_keys = [2, 3, 4]
 
-    # !! 只加载光学数据集 !!
-    opt_dataset = SAROptDatasetWithKeys(args.opt_data_dir, keys=optical_keys, transform=transform)
-    dataloader = DataLoader(
-        opt_dataset, # 不再使用ConcatDataset
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=args.num_workers,
-        pin_memory=True
-    )
+    optical_keys = [2, 3, 4]  # 假设
+    sar_keys = [0, 1]  # 假设
+
+    sar_dataset = SAROptDatasetWithKeys(args.sar_data_dir, keys=sar_keys, ...)
+    opt_dataset = OPTDatasetWithKeys(args.opt_data_dir, keys=optical_keys, ...)
     print(f"Total optical images for training: {len(opt_dataset)}")
 
-    # 5. 优化器和损失函数 (与之前版本相同)
+    # 5. 优化器和损失函数
     print("Setting up optimizer and loss functions...")
-    # optimizer = torch.optim.AdamW([
-    #     {'params': model.encoder.parameters(), 'lr': args.encoder_lr},
-    #     {'params': model.decoder.parameters(), 'lr': args.decoder_lr}
-    # ], ...)
+    optimizer = torch.optim.AdamW([
+        {'params': model.encoder.parameters(), 'lr': args.encoder_lr},
+        {'params': model.decoder.parameters(), 'lr': args.decoder_lr}
+    ], ...)
 
-    # criterion_recon = nn.L1Loss()
-    # if args.use_lpips:
-    #     criterion_perceptual = LPIPS(net='alex').to(device)
+    criterion_recon = nn.L1Loss()
+    if args.use_lpips:
+        criterion_perceptual = LPIPS(net='alex').to(device)
 
     # 训练循环
     print("Starting Stage 1: Optical-only Autoencoder finetuning...")
     for epoch in range(args.num_epochs):
-    model.train()
+        model.train()
 
-    for data_batch in tqdm(dataloader, desc=f"Stage 1 - Epoch {epoch+1}/{args.num_epochs}"):
+    for data_batch in tqdm(dataloader, desc=f"Stage 1 - Epoch {epoch + 1}/{args.num_epochs}"):
         # !! 数据加载器现在只返回光学数据 !!
         images, keys_list = data_batch
         images = images.to(device)
@@ -124,7 +119,7 @@ def train_stage1_optical_autoencoder(args):
 
         optimizer.zero_grad()
 
-        reconstructed, _ = model((images, optical_keys)) # keys是固定的
+        reconstructed, _ = model((images, optical_keys))  # keys是固定的
 
         # 计算损失 (现在很简单，因为都是3通道RGB)
         recon_loss = criterion_recon(reconstructed, images)
@@ -137,14 +132,14 @@ def train_stage1_optical_autoencoder(args):
         total_loss.backward()
         optimizer.step()
 
-        if args.use_wandb:
+        # if args.use_wandb:
     #         # wandb 日志记录
     #         ...
 
     print("Stage 1 (Optical-only) finetuning complete!")
 
     # 保存最终模型
-    output_path = os.path.join(args.output_dir, "fomo_autoencoder_optical_finetuned.pt")
+    output_path = os.path.join(args.output_dir, "fomo_autoencoder_stage1.pt")
     torch.save(model.state_dict(), output_path)
     print(f"Finetuned optical autoencoder saved to: {output_path}")
 
@@ -153,15 +148,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Stage 1: Finetune a FoMo-Net based Autoencoder on Optical data ONLY")
 
     # --- 路径参数 ---
-    # !! 只需要光学数据路径 !!
     parser.add_argument("--opt_data_dir", type=str, required=True, help="Path to Optical data directory")
     parser.add_argument("--fomo_config_path", type=str, required=True, help="Path to FoMo-Net config file")
     parser.add_argument("--fomo_ckpt_path", type=str, required=True, help="Path to pretrained FoMo-Net checkpoint")
     parser.add_argument("--output_dir", type=str, default="./checkpoints_stage1_optical",
                         help="Directory to save checkpoints")
 
-    # ... (其他参数如 image_size, patch_size, 模型参数, 训练参数, 日志参数等与上一版保持一致) ...
-    # 你可以删除 --sar_data_dir 参数，因为它不再需要了
     parser.add_argument("--image_size", type=int, default=256)
     parser.add_argument("--patch_size", type=int, default=16)
     parser.add_argument("--encoder_dim", type=int, default=768)
