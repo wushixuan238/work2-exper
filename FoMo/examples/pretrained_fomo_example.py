@@ -115,10 +115,10 @@ if __name__ == "__main__":
         # 模型通常期望 (batch_size, channels, height, width) 的输入
         img_tensor = img_tensor.unsqueeze(0)
 
-        # 5. 将模型设置为评估模式
+
         v.eval()
 
-        # 6. 进行推理
+
         with torch.no_grad():
             output = v((img_tensor, keys_list))
             encoded_features = v((img_tensor, keys_list), pool=False)
@@ -126,20 +126,5 @@ if __name__ == "__main__":
         print("Inference successful!")
         print("Output shape:", output.shape)
 
-        # 打印编码特征信息
         print("\nEncoded Features Shape:", encoded_features.shape)
         print("Encoded Features (first patch, first 5 values):", encoded_features[0, 0, :5])
-
-        # try:
-        #
-            # 打印预测的类别（如果模型是用于分类的）
-        #     if output.dim() == 2 and output.shape[1] == args.num_classes:
-        #         predicted_class = torch.argmax(output, dim=1).item()
-        #         print("Predicted class index:", predicted_class)
-        #
-        # except FileNotFoundError:
-        #     print(f"Error: The image file at {args.image_path} was not found.")
-        # except Exception as e:
-        #     print(f"An error occurred during image processing or inference: {e}")
-    # else:
-    #     print("No image path provided. Model loading verification successful, but no inference test was performed.")

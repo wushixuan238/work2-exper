@@ -13,12 +13,11 @@ from lpips import LPIPS
 from FoMo.model_zoo.multimodal_mae import MultiSpectralViT
 from wushixuan.models.fomo_shared_autoencoder import FomoSharedAutoencoder
 
-
-# from models.autoencoder import FomoAutoencoder  # 模型定义基本不变
-# from multimodal_mae import MultiSpectralViT, Transformer
-# from utils.config import load_fomo_configs
-# from dataset.sar_opt_dataset import SAROptDatasetWithKeys # 数据集类
-# from lpips import LPIPS # pip install lpips
+from models.autoencoder import FomoAutoencoder  # 模型定义基本不变
+from FoMo.model_zoo.multimodal_mae import MultiSpectralViT, Transformer
+from utils.config import load_fomo_configs
+from dataset.sar_opt_dataset import SAROptDatasetWithKeys  # 数据集类
+from lpips import LPIPS  # pip install lpips
 
 
 class FomoAutoencoder(nn.Module):
@@ -65,7 +64,6 @@ def train_stage1_optical_autoencoder(args):
     model = FomoSharedAutoencoder(
         fomo_encoder=fomo_encoder,
         decoder_dim=args.decoder_dim,
-        ...
     ).to(device)
 
     # 4. 数据准备
@@ -84,8 +82,8 @@ def train_stage1_optical_autoencoder(args):
     optical_keys = [2, 3, 4]  # 假设
     sar_keys = [0, 1]  # 假设
 
-    sar_dataset = SAROptDatasetWithKeys(args.sar_data_dir, keys=sar_keys, ...)
-    opt_dataset = OPTDatasetWithKeys(args.opt_data_dir, keys=optical_keys, ...)
+    sar_dataset = SAROptDatasetWithKeys(args.sar_data_dir, keys=sar_keys)
+    opt_dataset = OPTDatasetWithKeys(args.opt_data_dir, keys=optical_keys)
     print(f"Total optical images for training: {len(opt_dataset)}")
 
     # 5. 优化器和损失函数
