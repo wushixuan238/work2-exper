@@ -1,0 +1,1 @@
+Downloading: "https://download.pytorch.org/models/vgg16-397923af.pth" to /home/wushixuan/.cache/torch/hub/checkpoints/vgg16-397923af.pth
