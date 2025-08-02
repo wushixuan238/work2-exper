@@ -1,0 +1,106 @@
+<mxfile host="app.diagrams.net" version="24.4.0" agent="5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36">
+  <diagram id="safe-diagram-id" name="Page-1">
+    <mxGraphModel dx="2000" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Content-Guided Latent Bridge Matching Framework for SAR-to-Optical Translation" style="text;fontSize=24;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="320" y="20" width="1000" height="40" as="geometry" />
+        </mxCell>
+<!--        <mxCell id="group_stage1_2" value="Stage 1 & 2: Feature Extraction & Disentanglement" style="group;fontSize=16;fontStyle=1;" vertex="1" connectable="0" parent="1">-->
+<!--          <mxGeometry x="40" y="100" width="560" height="480" as="geometry" />-->
+<!--        </mxCell>-->
+        <mxCell id="sar_input_dist" value="p(x_sar)<br><b>SAR Input Distribution</b>" style="ellipse;dashed=1;" vertex="1" parent="group_stage1_2">
+          <mxGeometry x="0" y="40" width="200" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="opt_input_dist" value="p(x_opt)<br><b>Optical Input Distribution</b>" style="ellipse;dashed=1;" vertex="1" parent="group_stage1_2">
+          <mxGeometry x="360" y="40" width="200" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="encoder_disentangler" value="<b>Shared Encoder</b><br>&amp;<br><b>Disentangler</b>" style="shape=cylinder3;" vertex="1" parent="group_stage1_2">
+          <mxGeometry x="220" y="190" width="120" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow_sar_to_enc" style="endArrow=classic;" edge="1" parent="group_stage1_2" source="sar_input_dist" target="encoder_disentangler">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow_opt_to_enc" style="endArrow=classic;" edge="1" parent="group_stage1_2" source="opt_input_dist" target="encoder_disentangler">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="content_dist" value="p(z_unrelated)<br><b>Shared Content Space</b>" style="ellipse;dashed=1;" vertex="1" parent="group_stage1_2">
+          <mxGeometry x="180" y="360" width="200" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="sar_style_dist" value="p(z_related_sar)<br><b>SAR Style Space</b>" style="ellipse;dashed=1;" vertex="1" parent="group_stage1_2">
+          <mxGeometry x="0" y="360" width="160" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="opt_style_dist" value="p(z_related_opt)<br><b>OPT Style Space</b>" style="ellipse;dashed=1;" vertex="1" parent="group_stage1_2">
+          <mxGeometry x="400" y="360" width="160" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow_enc_to_content" style="endArrow=classic;" edge="1" parent="group_stage1_2" source="encoder_disentangler" target="content_dist">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow_enc_to_sar_style" style="endArrow=classic;" edge="1" parent="group_stage1_2" source="encoder_disentangler" target="sar_style_dist">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow_enc_to_opt_style" style="endArrow=classic;" edge="1" parent="group_stage1_2" source="encoder_disentangler" target="opt_style_dist">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="group_stage3" value="Stage 3: Content-Guided LBM Translation (in Latent Space)" style="group;fontSize=16;fontStyle=1;" vertex="1" connectable="0" parent="1">
+          <mxGeometry x="640" y="100" width="980" height="880" as="geometry" />
+        </mxCell>
+        <mxCell id="sar_latent_dist" value="p(z_mixed_sar)<br><b>SAR Latent Distribution</b>" style="ellipse;dashed=1;" vertex="1" parent="group_stage3">
+          <mxGeometry x="0" y="680" width="240" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="opt_latent_dist" value="p(z_mixed_opt)<br><b>Optical Latent Distribution</b>" style="ellipse;dashed=1;" vertex="1" parent="group_stage3">
+          <mxGeometry x="740" y="200" width="240" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="informed_start_dist" value="<b>Informed Start Distribution</b>" style="ellipse;dashed=1;strokeWidth=2;" vertex="1" parent="group_stage3">
+          <mxGeometry x="370" y="440" width="220" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="informed_init_arrow" value="<b>Informed Initialization</b>" style="endArrow=block;strokeWidth=2;" edge="1" parent="group_stage3" source="sar_latent_dist" target="informed_start_dist">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="traj_ours" value="" style="curved=1;endArrow=classic;strokeWidth=4;strokeColor=#FF0000;" edge="1" parent="group_stage3" source="informed_start_dist" target="opt_latent_dist">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="640" y="380" />
+              <mxPoint x="720" y="320" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="traj_lbm" value="" style="curved=1;endArrow=classic;strokeColor=#0000FF;" edge="1" parent="group_stage3" source="sar_latent_dist" target="opt_latent_dist">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="400" y="600" />
+              <mxPoint x="600" y="400" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="traj_oracle" value="" style="curved=1;endArrow=classic;dashed=1;strokeColor=#009900;" edge="1" parent="group_stage3" source="sar_latent_dist" target="opt_latent_dist">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="450" y="650" />
+              <mxPoint x="650" y="450" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend" value="LEGEND" style="text;align=left;" vertex="1" parent="group_stage3">
+          <mxGeometry x="640" y="680" width="320" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="guidance_arrow" value="<b>Content Guidance</b>" style="endArrow=block;dashed=1;" edge="1" parent="1" source="content_dist" target="traj_ours">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="decoder_opt" value="<b>Optical Decoder</b>" style="shape=cylinder3;" vertex="1" parent="1">
+          <mxGeometry x="1400" y="310" width="120" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="final_output_dist" value="<b>Generated Optical Image</b>" style="ellipse;" vertex="1" parent="1">
+          <mxGeometry x="1360" y="470" width="200" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="final_arrow_decode" style="endArrow=classic;" edge="1" parent="1" source="opt_latent_dist" target="decoder_opt">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow_dec_to_out" style="endArrow=classic;" edge="1" parent="1" source="decoder_opt" target="final_output_dist">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
