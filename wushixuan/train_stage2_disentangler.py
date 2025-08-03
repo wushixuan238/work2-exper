@@ -21,17 +21,35 @@ from yujun.dataset.fomo_dataset import FomoCompatibleDataset
 def train_stage2_disentangler(args):
     device = torch.device(args.device)
 
-    # ... (wandb初始化) ...
+    # 1. 初始化wandb
+    if args.use_wandb:
+        wandb.init(project=args.project_name, name="stage2_disentangler", config=args)
 
     # --- 1. 加载并冻结第一阶段的自编码器 ---
     print("Loading and freezing the pretrained Stage 1 autoencoder...")
 
-    # a. 初始化一个空的FomoJointAutoencoder结构
-    config = ...
-    fomo_encoder = MultiSpectralViT(...)
-    autoencoder = FomoJointAutoencoder(fomo_encoder=fomo_encoder, ...)
+    with open(args.config_path, 'r') as f:
+        config = json.load(f)
+
+    modality_keys = sorted([int(k) for k in config['modality_channels'].keys()])
+    num_total_bands = max(modality_keys) + 1
+    modality_channels_for_init = list(range(num_total_bands))
+    fomo_init_configs = {'single_embedding_layer': True, 'modality_channels': modality_channels_for_init}
+
+    fomo_encoder = MultiSpectralViT(
+        image_size=args.image_size, patch_size=args.patch_size, channels=1, num_classes=1000,
+        dim=args.encoder_dim, depth=args.encoder_depth, heads=args.encoder_heads, mlp_dim=args.encoder_mlp_dim,
+        configs=fomo_init_configs
+    )
+
+    autoencoder = FomoJointAutoencoder(
+        fomo_encoder=fomo_encoder, decoder_dim=args.decoder_dim, decoder_depth=args.decoder_depth,
+        sar_channels=args.sar_channels, opt_channels=args.opt_channels,
+        image_size=args.image_size, patch_size=args.patch_size
+    )
 
     # b. 加载第一阶段训练好的权重
+    print(f"Loading Stage 1 checkpoint from: {args.stage1_ckpt_path}")
     autoencoder.load_state_dict(torch.load(args.stage1_ckpt_path, map_location='cpu'))
 
     # c. 冻结所有参数
@@ -41,25 +59,46 @@ def train_stage2_disentangler(args):
     autoencoder.to(device)
     print("Stage 1 autoencoder is loaded and frozen.")
 
-    # --- 2. 初始化需要训练的新模型 ---
+    # --- 3. 初始化需要训练的新模型 ---
     print("Initializing Stage 2 models (Disentangler, Discriminator, Confuser)...")
     disentangler = FeatureDisentangler(feature_dim=args.encoder_dim).to(device)
     discriminator_related = ModalityDiscriminator(feature_dim=args.encoder_dim).to(device)
-    confuser_unrelated = ModalityDiscriminator(feature_dim=args.encoder_dim).to(device)  # 结构相同
+    confuser_unrelated = ModalityDiscriminator(feature_dim=args.encoder_dim).to(device)
 
     # --- 3. 数据准备 (需要模态标签) ---
     print("Preparing datasets with modality labels...")
     # ... (与第一阶段类似, 但需要给Dataset传入modality_label) ...
+    transform_sar = transforms.Compose([
+        transforms.Resize((args.image_size, args.image_size)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5], std=[0.5])
+    ])
 
-    sar_dataset = FomoCompatibleDataset(..., modality_label=0)
-    opt_dataset = FomoCompatibleDataset(..., modality_label=1)
+    transform_opt = transforms.Compose([
+        transforms.Resize((args.image_size, args.image_size)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+    ])
+
+    sar_dataset = FomoCompatibleDataset(
+        data_dir=args.sar_data_dir, dataset_name='my_sar_train_dataset',
+        config=config, transform=transform_sar, in_chans=args.sar_channels, modality_label=0  # SAR标签为0
+    )
+    opt_dataset = FomoCompatibleDataset(
+        data_dir=args.opt_data_dir, dataset_name='my_optical_train_dataset',
+        config=config, transform=transform_opt, in_chans=args.opt_channels, modality_label=1  # OPT标签为1
+    )
+    # 注意：为了让两个数据集一起工作，我们需要一个ConcatDataset
+    combined_dataset = ConcatDataset([sar_dataset, opt_dataset])
+    dataloader = DataLoader(combined_dataset, batch_size=args.batch_size, shuffle=True,
+                            num_workers=args.num_workers, collate_fn=custom_collate_fn)
 
     sar_loader = DataLoader(sar_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
                             collate_fn=custom_collate_fn)
     opt_loader = DataLoader(opt_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
                             collate_fn=custom_collate_fn)
 
-    # --- 4. 优化器和损失函数 ---
+    # --- 5. 优化器和损失函数 ---
     optimizer_disentangler = torch.optim.AdamW(disentangler.parameters(), lr=args.lr_disentangler)
     optimizer_discriminator = torch.optim.AdamW(discriminator_related.parameters(), lr=args.lr_discriminator)
     optimizer_confuser = torch.optim.AdamW(confuser_unrelated.parameters(), lr=args.lr_discriminator)
@@ -70,73 +109,85 @@ def train_stage2_disentangler(args):
         disentangler.train()
         discriminator_related.train()
         confuser_unrelated.train()
-        # ... (数据迭代器和tqdm设置) ...
-        for i in range(num_batches):
-            # --- 获取SAR和OPT数据 ---
-            sar_images, sar_keys = ...
-            opt_images, opt_keys = ...
 
-            # --- 提取冻结的混合特征 ---
-            with torch.no_grad():
-                _, mixed_tokens_sar = autoencoder((sar_images, sar_keys), modality='sar')
-                _, mixed_tokens_opt = autoencoder((opt_images, opt_keys), modality='opt')
+        with tqdm(dataloader, desc=f"Stage 2 - Epoch {epoch + 1}/{args.num_epochs}") as pbar:
+            for images, keys, modality_labels_batch in pbar:
+                images = images.to(device)
+                modality_labels_batch = modality_labels_batch.to(device)
 
-            mixed_tokens = torch.cat([mixed_tokens_sar, mixed_tokens_opt], dim=0)
+                # --- 提取冻结的混合特征 ---
+                with torch.no_grad():
+                    # 我们需要根据模态标签分离图像，分别送入编码器
+                    is_sar = (modality_labels_batch == 0)
+                    is_opt = (modality_labels_batch == 1)
 
-            # --- 创建模态标签 ---
-            b_sar, n_sar, d = mixed_tokens_sar.shape
-            b_opt, n_opt, d = mixed_tokens_opt.shape
-            labels_sar = torch.zeros(b_sar * n_sar, dtype=torch.long, device=device)
-            labels_opt = torch.ones(b_opt * n_opt, dtype=torch.long, device=device)
-            modality_labels_flat = torch.cat([labels_sar, labels_opt])
+                    mixed_tokens_list = []
+                    if is_sar.any():
+                        _, tokens_sar = autoencoder((images[is_sar], keys), modality='sar')
+                        mixed_tokens_list.append(tokens_sar)
+                    if is_opt.any():
+                        _, tokens_opt = autoencoder((images[is_opt], keys), modality='opt')
+                        mixed_tokens_list.append(tokens_opt)
 
-            # ============================================
-            #  (1) 训练解耦器 (Disentangler)
-            # ============================================
-            optimizer_disentangler.zero_grad()
+                    mixed_tokens = torch.cat(mixed_tokens_list, dim=0)
 
-            unrelated_tokens, related_tokens = disentangler(mixed_tokens)
+                # --- 创建用于分类的模态标签 ---
+                b, n, d = mixed_tokens.shape
+                # 标签需要与token数量对齐 (B*N)
+                modality_labels_flat = modality_labels_batch.view(-1, 1).repeat(1, n).view(-1)
 
-            # a. 判别损失 (希望related_tokens能被分开)
-            pred_related = discriminator_related(related_tokens)
-            loss_disc = criterion_cls(pred_related, modality_labels_flat)
+                # ============================================
+                #  (1) 训练解耦器 (Disentangler)
+                # ============================================
+                optimizer_disentangler.zero_grad()
 
-            # b. 混淆损失 (希望unrelated_tokens不能被分开)
-            reversed_unrelated = GradientReverseLayer.apply(unrelated_tokens, args.grl_lambda)
-            pred_unrelated = confuser_unrelated(reversed_unrelated)
-            loss_conf = criterion_cls(pred_unrelated, modality_labels_flat)
+                unrelated_tokens, related_tokens = disentangler(mixed_tokens)
 
-            total_loss_disentangler = args.lambda_disc * loss_disc + args.lambda_conf * loss_conf
-            total_loss_disentangler.backward()
-            optimizer_disentangler.step()
+                # a. 判别损失
+                pred_related = discriminator_related(related_tokens)
+                loss_disc = criterion_cls(pred_related, modality_labels_flat)
 
-            # ============================================
-            #  (2) 训练判别器 (Discriminator)
-            # ============================================
-            optimizer_discriminator.zero_grad()
+                # b. 混淆损失
+                reversed_unrelated = GradientReverseLayer.apply(unrelated_tokens, args.grl_lambda)
+                pred_unrelated = confuser_unrelated(reversed_unrelated)
+                loss_conf = criterion_cls(pred_unrelated, modality_labels_flat)
 
-            # # .detach()来避免梯度传回解耦器
-            _, related_tokens_detached = disentangler(mixed_tokens.detach())
-            pred_related_for_disc = discriminator_related(related_tokens_detached.detach())
-            loss_disc_only = criterion_cls(pred_related_for_disc, modality_labels_flat)
-            loss_disc_only.backward()
-            optimizer_discriminator.step()
+                total_loss_disentangler = args.lambda_disc * loss_disc + args.lambda_conf * loss_conf
+                total_loss_disentangler.backward()
+                optimizer_disentangler.step()
 
-            # ============================================
-            #  (3) 训练混淆器 (Confuser)
-            # ============================================
-            optimizer_confuser.zero_grad()
+                # ============================================
+                #  (2) 训练判别器 (Discriminator for related features)
+                # ============================================
+                optimizer_discriminator.zero_grad()
 
-            unrelated_tokens_detached, _ = disentangler(mixed_tokens.detach())
-            pred_unrelated_for_conf = confuser_unrelated(unrelated_tokens_detached.detach())
-            loss_conf_only = criterion_cls(pred_unrelated_for_conf, modality_labels_flat)
-            loss_conf_only.backward()
-            optimizer_confuser.step()
+                _, related_tokens_detached = disentangler(mixed_tokens.detach())
+                pred_related_for_disc = discriminator_related(related_tokens_detached.detach())
+                loss_disc_only = criterion_cls(pred_related_for_disc, modality_labels_flat)
+                loss_disc_only.backward()
+                optimizer_discriminator.step()
 
-        # ... (日志记录) ...
+                # ============================================
+                #  (3) 训练混淆器 (Confuser for unrelated features)
+                # ============================================
+                optimizer_confuser.zero_grad()
 
-        print("Stage 2 feature disentanglement training complete!")
-    # 保存解耦器模型
+                unrelated_tokens_detached, _ = disentangler(mixed_tokens.detach())
+                pred_unrelated_for_conf = confuser_unrelated(unrelated_tokens_detached.detach())
+                loss_conf_only = criterion_cls(pred_unrelated_for_conf, modality_labels_flat)
+                loss_conf_only.backward()
+                optimizer_confuser.step()
+
+                # ... (日志记录) ...
+                pbar.set_postfix({
+                    "loss_disentangler": f"{total_loss_disentangler.item():.4f}",
+                    "loss_disc": f"{loss_disc_only.item():.4f}",
+                    "loss_conf": f"{loss_conf_only.item():.4f}"
+                })
+
+    print("Stage 2 feature disentanglement training complete!")
+
+    # 保存模型
     output_path = os.path.join(args.output_dir, "disentangler_stage2.pt")
     torch.save(disentangler.state_dict(), output_path)
     print(f"Stage 2 disentangler saved to: {output_path}")
