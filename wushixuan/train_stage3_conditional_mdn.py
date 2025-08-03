@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 # --- 导入所有必要的模块 ---
 from models.fomo_joint_autoencoder import FomoJointAutoencoder
-from multimodal_mae import MultiSpectralViT
+from FoMo.model_zoo.multimodal_mae import MultiSpectralViT
 from models.disentangler import FeatureDisentangler
 from models.conditional_mdn import ConditionalMDN, get_timestep_embedding  # 导入新模型
 from dataset.fomo_dataset import FomoCompatibleDataset
@@ -37,11 +37,11 @@ def train_stage3_conditional_mdn(args):
 
     # --- 2. 初始化需要训练的新模型：C-MDN ---
     print("Initializing Stage 3 model (Conditional MDN)...")
-    # c_mdn = ConditionalMDN(
-    #     feature_dim=args.encoder_dim,
-    #     condition_dim=args.encoder_dim, # 内容和风格特征维度相同
-    #     # ... 其他超参数 ...
-    # ).to(device)
+    c_mdn = ConditionalMDN(
+        feature_dim=args.encoder_dim,
+        condition_dim=args.encoder_dim, # 内容和风格特征维度相同
+        # ... 其他超参数 ...
+    ).to(device)
 
     # --- 3. 数据准备 (只需要光学数据) ---
     print("Preparing Optical dataset for training...")
@@ -59,7 +59,7 @@ def train_stage3_conditional_mdn(args):
 
     print("Starting Stage 3: Conditional MDN Training...")
     for epoch in range(args.num_epochs):
-    # c_mdn.train()
+    c_mdn.train()
 
     # for images, keys in tqdm(dataloader, ...):
     # images = images.to(device)
@@ -94,18 +94,18 @@ def train_stage3_conditional_mdn(args):
     # )
 
     # 3. 计算损失 (预测噪声 vs 真实噪声)
-    # loss = criterion_mse(noise_pred, noise)
+    loss = criterion_mse(noise_pred, noise)
 
-    # loss.backward()
-    # optimizer.step()
+    loss.backward()
+    optimizer.step()
 
     # ... (日志记录) ...
 
     print("Stage 3 Conditional MDN training complete!")
     # 保存模型
-    # output_path = os.path.join(args.output_dir, "c_mdn_stage3.pt")
-    # torch.save(c_mdn.state_dict(), output_path)
-    # print(f"Stage 3 C-MDN model saved to: {output_path}")
+    output_path = os.path.join(args.output_dir, "c_mdn_stage3.pt")
+    torch.save(c_mdn.state_dict(), output_path)
+    print(f"Stage 3 C-MDN model saved to: {output_path}")
 
 
 if __name__ == '__main__':

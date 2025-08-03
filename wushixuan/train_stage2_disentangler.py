@@ -272,7 +272,7 @@ if __name__ == '__main__':
     parser.add_argument("--encoder_dim", type=int, default=768, help="Dimension of the features from encoder")
 
     # --- 训练参数 ---
-    parser.add_argument("--num_epochs", type=int, default=100)
+    parser.add_argument("--num_epochs", type=int, default=5)
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--lr_disentangler", type=float, default=1e-4)
     parser.add_argument("--lr_discriminator", type=float, default=2e-4)
