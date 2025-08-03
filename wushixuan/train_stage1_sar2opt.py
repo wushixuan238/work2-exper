@@ -102,9 +102,13 @@ class FomoJointAutoencoder(nn.Module):
         w_patch_count = W // patch_size
 
         encoded_tokens = self.encoder(data, pool=False)
+        num_patches_per_channel = (H // patch_size) * (W // patch_size)
 
         if modality == 'sar':
-            reconstructed_image = self.decoder_sar(encoded_tokens, h_patch_count, w_patch_count)
+            # encoded_tokens_for_decoder = encoded_tokens[:, :num_patches_per_channel, :]
+            # reconstructed_image = self.decoder_sar(encoded_tokens_for_decoder, h_patch_count, w_patch_count)
+            reconstructed_image = self.decoder_opt(encoded_tokens, h_patch_count,
+                                                   w_patch_count)
         elif modality == 'opt':
             reconstructed_image = self.decoder_opt(encoded_tokens, h_patch_count, w_patch_count)
         else:
@@ -336,7 +340,7 @@ if __name__ == '__main__':
     parser.add_argument("--image_size", type=int, default=512)
     parser.add_argument("--patch_size", type=int, default=16)
 
-    parser.add_argument("--sar_channels", type=int, default=1)
+    parser.add_argument("--sar_channels", type=int, default=3)
     parser.add_argument("--opt_channels", type=int, default=3)
 
     parser.add_argument("--encoder_dim", type=int, default=768)

@@ -1,5 +1,5 @@
 # train_stage2_disentangler.py
-
+from torchvision import transforms
 import argparse
 import os
 import json
@@ -8,14 +8,37 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, ConcatDataset
 from tqdm import tqdm
 
-from wushixuan.models.fomo_shared_autoencoder import FomoJointAutoencoder
+from wushixuan.models.fomo_shared_autoencoder import FomoSharedAutoencoder
 from FoMo.model_zoo.multimodal_mae import MultiSpectralViT
 from models.disentangler import FeatureDisentangler, ModalityDiscriminator, GradientReverseLayer
-from wushixuan.train_stage1_sar2opt import custom_collate_fn
+from wushixuan.train_stage1_sar2opt import FomoJointAutoencoder
 from yujun.dataset.fomo_dataset import FomoCompatibleDataset
 
+import wandb
 
-# import wandb
+# # --- 从配置文件中预先加载并定义好SAR和OPT的keys ---
+# # # 这是最佳实践，避免在循环中重复计算
+# # sar_map = config['dataset_modality_index']['my_sar_train_dataset']
+# # sorted_sar_map = sorted(sar_map.items(), key=lambda item: item[1])
+# # sar_band_names = [item[0] for item in sorted_sar_map]
+# # band_name_to_key = {name: int(key) for key, name in config['modality_channels'].items()}
+# # sar_keys = [band_name_to_key[name] for name in sar_band_names]
+# #
+# # opt_map = config['dataset_modality_index']['my_optical_train_dataset']
+# # sorted_opt_map = sorted(opt_map.items(), key=lambda item: item[1])
+# # opt_band_names = [item[0] for item in sorted_opt_map]
+# # opt_keys = [band_name_to_key[name] for name in opt_band_names]
+#
+# print(f"SAR keys for training: {sar_keys}")  # 应该输出 [4, 5]
+# print(f"OPT keys for training: {opt_keys}")  # 应该输出 [9, 8, 7]
+
+
+# train_stage2_disentangler.py
+
+def custom_collate_fn_stage2(batch):
+    images = torch.stack([item[0] for item in batch], dim=0)
+    modality_labels = torch.tensor([item[1] for item in batch], dtype=torch.long)
+    return images, modality_labels
 
 
 def train_stage2_disentangler(args):
@@ -30,6 +53,30 @@ def train_stage2_disentangler(args):
 
     with open(args.config_path, 'r') as f:
         config = json.load(f)
+
+    # --- 2. 预先计算并定义SAR和OPT的keys (从全局移动到这里) ---
+    print("Pre-calculating modality keys...")
+    try:
+        band_name_to_key = {name: int(key) for key, name in config['modality_channels'].items()}
+
+        sar_map = config['dataset_modality_index']['my_sar_train_dataset']
+        sorted_sar_map = sorted(sar_map.items(), key=lambda item: item[1])
+        sar_band_names = [item[0] for item in sorted_sar_map]
+        sar_keys = [band_name_to_key[name] for name in sar_band_names]
+
+        opt_map = config['dataset_modality_index']['my_optical_train_dataset']
+        sorted_opt_map = sorted(opt_map.items(), key=lambda item: item[1])
+        opt_band_names = [item[0] for item in sorted_opt_map]
+        opt_keys = [band_name_to_key[name] for name in opt_band_names]
+
+        print(f"  SAR keys for training: {sar_keys}")
+        print(f"  OPT keys for training: {opt_keys}")
+
+
+
+    except KeyError as e:
+        print(f"错误: 配置文件中缺少关键的键: {e}。请检查'modality_channels'和'dataset_modality_index'的定义。")
+        return  # 提前退出
 
     modality_keys = sorted([int(k) for k in config['modality_channels'].keys()])
     num_total_bands = max(modality_keys) + 1
@@ -70,8 +117,10 @@ def train_stage2_disentangler(args):
     # ... (与第一阶段类似, 但需要给Dataset传入modality_label) ...
     transform_sar = transforms.Compose([
         transforms.Resize((args.image_size, args.image_size)),
+        transforms.Grayscale(num_output_channels=3),  # !! 将灰度图转换为3通道 !!
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5], std=[0.5])
+        # transforms.Normalize(mean=[0.5], std=[0.5])
+        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
     ])
 
     transform_opt = transforms.Compose([
@@ -91,12 +140,12 @@ def train_stage2_disentangler(args):
     # 注意：为了让两个数据集一起工作，我们需要一个ConcatDataset
     combined_dataset = ConcatDataset([sar_dataset, opt_dataset])
     dataloader = DataLoader(combined_dataset, batch_size=args.batch_size, shuffle=True,
-                            num_workers=args.num_workers, collate_fn=custom_collate_fn)
+                            num_workers=args.num_workers, collate_fn=custom_collate_fn_stage2)
 
-    sar_loader = DataLoader(sar_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
-                            collate_fn=custom_collate_fn)
-    opt_loader = DataLoader(opt_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
-                            collate_fn=custom_collate_fn)
+    # sar_loader = DataLoader(sar_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
+    #                         collate_fn=custom_collate_fn_stage2)
+    # opt_loader = DataLoader(opt_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers,
+    #                         collate_fn=custom_collate_fn_stage2)
 
     # --- 5. 优化器和损失函数 ---
     optimizer_disentangler = torch.optim.AdamW(disentangler.parameters(), lr=args.lr_disentangler)
@@ -111,7 +160,7 @@ def train_stage2_disentangler(args):
         confuser_unrelated.train()
 
         with tqdm(dataloader, desc=f"Stage 2 - Epoch {epoch + 1}/{args.num_epochs}") as pbar:
-            for images, keys, modality_labels_batch in pbar:
+            for images, modality_labels_batch in pbar:  # 修正这里，增加keys
                 images = images.to(device)
                 modality_labels_batch = modality_labels_batch.to(device)
 
@@ -121,16 +170,26 @@ def train_stage2_disentangler(args):
                     is_sar = (modality_labels_batch == 0)
                     is_opt = (modality_labels_batch == 1)
 
+                    original_indices_list = [] # 用于在最后恢复原始顺序
+
                     mixed_tokens_list = []
                     if is_sar.any():
-                        _, tokens_sar = autoencoder((images[is_sar], keys), modality='sar')
+                        sar_images_batch = images[is_sar]
+                        # !! 逻辑最清晰的地方：直接使用预先计算好的sar_keys !!
+                        _, tokens_sar = autoencoder((sar_images_batch, sar_keys), modality='sar')
                         mixed_tokens_list.append(tokens_sar)
+                        original_indices_list.append(is_sar.nonzero(as_tuple=True)[0])
                     if is_opt.any():
-                        _, tokens_opt = autoencoder((images[is_opt], keys), modality='opt')
+                        opt_images_batch = images[is_opt]
+                        # !! 直接使用预先计算好的opt_keys !!
+                        _, tokens_opt = autoencoder((opt_images_batch, opt_keys), modality='opt')
                         mixed_tokens_list.append(tokens_opt)
-
-                    mixed_tokens = torch.cat(mixed_tokens_list, dim=0)
-
+                        original_indices_list.append(is_opt.nonzero(as_tuple=True)[0])
+                    # # 重新组合tokens，并恢复原始批次顺序
+                    temp_tokens = torch.cat(mixed_tokens_list, dim=0)
+                    original_indices = torch.cat(original_indices_list, dim=0)
+                    _, sorted_indices = torch.sort(original_indices)
+                    mixed_tokens = temp_tokens[sorted_indices]
                 # --- 创建用于分类的模态标签 ---
                 b, n, d = mixed_tokens.shape
                 # 标签需要与token数量对齐 (B*N)
@@ -197,11 +256,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Stage 2: Train a Feature Disentangler")
 
     # --- 路径参数 ---
-    parser.add_argument("--stage1_ckpt_path", type=str, required=True,
+    parser.add_argument("--stage1_ckpt_path", type=str,
+                        default='/home/wushixuan/桌面/07/work2-exper/wushixuan/checkpoints_stage1_optical/fomo_joint_autoencoder_stage1.pt',
                         help="Path to the trained Stage 1 autoencoder checkpoint")
-    parser.add_argument("--sar_data_dir", type=str, required=True)
-    parser.add_argument("--opt_data_dir", type=str, required=True)
-    parser.add_argument("--config_path", type=str, required=True)
+    parser.add_argument("--opt_data_dir", type=str, default='/home/wushixuan/yujun/data/rsdiffusion/sar2opt/trainA',
+                        help="Path to Optical data directory")
+    parser.add_argument("--sar_data_dir", type=str, default='/home/wushixuan/yujun/data/rsdiffusion/sar2opt/trainB',
+                        help="Path to SAR data directory")
+    parser.add_argument("--config_path", type=str,
+                        default='/home/wushixuan/桌面/07/work2-exper/FoMo/configs/datasets/fomo_pretraining_datasets.json',
+                        help="Path to FoMo-Net config file")
     parser.add_argument("--output_dir", type=str, default="./checkpoints_stage2_disentangler")
 
     # --- 模型参数 (与第一阶段的编码器匹配) ---
@@ -217,6 +281,28 @@ if __name__ == '__main__':
     parser.add_argument("--lambda_conf", type=float, default=0.5, help="Weight for the confusion loss")
 
     # ... (其他通用参数如device, num_workers, wandb设置等) ...
+    parser.add_argument("--image_size", type=int, default=512)
+    parser.add_argument("--patch_size", type=int, default=16)
+
+    parser.add_argument("--sar_channels", type=int, default=1)
+    parser.add_argument("--opt_channels", type=int, default=3)
+
+    parser.add_argument("--encoder_depth", type=int, default=12)
+    parser.add_argument("--encoder_heads", type=int, default=12)
+    parser.add_argument("--encoder_mlp_dim", type=int, default=2048)
+    parser.add_argument("--decoder_dim", type=int, default=512)
+    parser.add_argument("--decoder_depth", type=int, default=8)
+    parser.add_argument("--decoder_heads", type=int, default=16)
+
+    parser.add_argument("--encoder_lr", type=float, default=1e-5)
+    parser.add_argument("--decoder_lr", type=float, default=1e-4)
+    parser.add_argument("--weight_decay", type=float, default=0.05)
+    parser.add_argument("--use_lpips", action='store_true')
+    parser.add_argument("--lambda_lpips", type=float, default=0.1)
+    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--num_workers", type=int, default=0)
+    parser.add_argument("--use_wandb", action='store_true')
+    parser.add_argument("--project_name", type=str, default="SAR-to-Optical-Translation")
 
     args = parser.parse_args()
     train_stage2_disentangler(args)

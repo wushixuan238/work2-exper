@@ -160,7 +160,8 @@
     },
     "my_sar_train_dataset": {
       "sentinel-1-vv": 0,
-      "sentinel-1-vh": 1
+      "sentinel-1-vh": 1,
+      "sentinel-2-b9": 2
     },
     "my_optical_train_dataset": {
       "sentinel-2-b4": 0,

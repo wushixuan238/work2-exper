@@ -14,7 +14,7 @@ class FomoCompatibleDataset(Dataset):
     它能够读取配置文件，并为每个图像样本返回对应的全局光谱keys。
     """
 
-    def __init__(self, data_dir, dataset_name, config, transform=None, in_chans=None):
+    def __init__(self, data_dir, dataset_name, config, transform=None, in_chans=None, modality_label=None):
         """
         初始化数据集。
 
@@ -36,6 +36,8 @@ class FomoCompatibleDataset(Dataset):
         self.config = config
         self.transform = transform
 
+        self.modality_label = modality_label
+
         # 2. 获取图像文件列表
         self.image_files = sorted(glob.glob(os.path.join(data_dir, '*')))
         if not self.image_files:
@@ -49,6 +51,10 @@ class FomoCompatibleDataset(Dataset):
         print(f"数据集 '{self.dataset_name}' 被初始化，包含 {len(self.image_files)} 张图像，"
               f"每个图像有 {self.in_chans} 个通道。")
         print(f"本地通道索引 -> 全局Key 的映射: {self.local_to_global_keys}")
+        print(f"--- FINAL DEBUG for '{self.dataset_name}' ---")
+        print(f"  Resulting self.local_to_global_keys: {self.local_to_global_keys}")
+        print(f"  Keys that will be returned by __getitem__: {list(self.local_to_global_keys.values())}")
+        print(f"-------------------------------------------")
 
     def _build_key_mapping(self):
         """
@@ -77,22 +83,38 @@ class FomoCompatibleDataset(Dataset):
     def __len__(self):
         return len(self.image_files)
 
+    # def __getitem__(self, idx):
+    #     # print(f"DEBUG: In __getitem__ for {self.dataset_name}, modality_label is {self.modality_label}")
+    #     image_path = self.image_files[idx]
+    #
+    #     # 根据通道数决定如何打开图像
+    #     if self.in_chans == 1:
+    #         image = Image.open(image_path).convert('L')
+    #     elif self.in_chans == 3:
+    #         image = Image.open(image_path).convert('RGB')
+    #     else:
+    #         raise NotImplementedError(f"加载 {self.in_chans} 通道图像的逻辑尚未实现。")
+    #
+    #     if self.transform:
+    #         image_tensor = self.transform(image)
+    #
+    #     # 获取这个数据集固定的keys列表
+    #     # 我们直接使用解析好的映射的values
+    #     keys_list = []
+    #     for i in range(self.in_chans):
+    #         keys_list.append(self.local_to_global_keys[i])
+    #
+    #     if self.modality_label is not None:
+    #         return image_tensor, keys_list, self.modality_label
+    #     else:
+    #         # 保持向后兼容
+    #         return image_tensor, keys_list
     def __getitem__(self, idx):
         image_path = self.image_files[idx]
-
-        # 根据通道数决定如何打开图像
-        if self.in_chans == 1:
-            image = Image.open(image_path).convert('L')
-        elif self.in_chans == 3:
-            image = Image.open(image_path).convert('RGB')
-        else:
-            raise NotImplementedError(f"加载 {self.in_chans} 通道图像的逻辑尚未实现。")
+        image = Image.open(image_path).convert('RGB')  # 总是转RGB
 
         if self.transform:
             image_tensor = self.transform(image)
 
-        # 获取这个数据集固定的keys列表
-        # 我们直接使用解析好的映射的values
-        keys_list = list(self.local_to_global_keys.values())
+        return image_tensor, self.modality_label
 
-        return image_tensor, keys_list

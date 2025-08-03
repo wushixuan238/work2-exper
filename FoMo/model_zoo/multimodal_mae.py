@@ -162,6 +162,14 @@ class MultiSpectralViT(nn.Module):
 
     def forward(self, data, pool=True):
         img, keys = data
+
+        # --- 在这里加入调试打印 ---
+        # print(f"--- DEBUG in MultiSpectralViT.forward ---")
+        # print(f"Input image shape (B, C, H, W): {img.shape}")
+        # print(f"Input keys: {keys}")
+        # print(f"Length of keys: {len(keys)}")
+        # print(f"--------------------------------------")
+
         b = img.shape[0]
         device = img.device
         img = einops.rearrange(img, "b c h w -> c b h w")
@@ -176,7 +184,9 @@ class MultiSpectralViT(nn.Module):
                 self.to_patch_embedding[keys[idx]].to(device)
                 channel_token = self.to_patch_embedding[keys[idx]](channel)
 
-            channel_token += self.spectral_embedding[:, keys[idx]]
+            # channel_token += self.spectral_embedding[:, keys[idx]]
+            spectral_emb = self.spectral_embedding[:, keys[idx]].unsqueeze(1)  # 形状变为 [1, 1, 768]
+            channel_token += spectral_emb
             _, n, _ = channel_token.shape
             channel_token += self.pos_embedding[:, 1 : (n + 1)]
             if tokens is None:
