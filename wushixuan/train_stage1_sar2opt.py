@@ -333,7 +333,7 @@ if __name__ == '__main__':
     parser.add_argument("--output_dir", type=str, default="./checkpoints_stage1_optical",
                         help="Directory to save checkpoints")
 
-    parser.add_argument("--image_size", type=int, default=256)
+    parser.add_argument("--image_size", type=int, default=512)
     parser.add_argument("--patch_size", type=int, default=16)
 
     parser.add_argument("--sar_channels", type=int, default=1)
@@ -346,8 +346,8 @@ if __name__ == '__main__':
     parser.add_argument("--decoder_dim", type=int, default=512)
     parser.add_argument("--decoder_depth", type=int, default=8)
     parser.add_argument("--decoder_heads", type=int, default=16)
-    parser.add_argument("--num_epochs", type=int, default=50)
-    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--num_epochs", type=int, default=100)
+    parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--encoder_lr", type=float, default=1e-5)
     parser.add_argument("--decoder_lr", type=float, default=1e-4)
     parser.add_argument("--weight_decay", type=float, default=0.05)
