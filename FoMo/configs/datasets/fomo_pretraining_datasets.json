@@ -166,7 +166,8 @@
     "my_optical_train_dataset": {
       "sentinel-2-b4": 0,
       "sentinel-2-b3": 1,
-      "sentinel-2-b2": 2
+      "sentinel-2-b2": 2,
+      "sentinel-2-b1": 3
     }
   },
   "split_workers": false
