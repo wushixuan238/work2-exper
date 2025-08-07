@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from rdm.modules.diffusionmodules.util import (
+from cross_conditioned_unet_model.rcg.rdm.modules.diffusionmodules.util import (
     zero_module,
     timestep_embedding,
 )

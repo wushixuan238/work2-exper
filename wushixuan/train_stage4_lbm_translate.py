@@ -8,7 +8,6 @@ from collections import namedtuple
 from typing import List, Optional
 from huggingface_hub.utils import enable_progress_bars
 import torch.nn as nn
-from examples.training.utils.image_datasets import load_data
 from lbm.models.conditional_mdn import ConditionalMDN
 
 from cross_conditioned_unet_model.guided_diffusion.unet_rdm import UNetModel

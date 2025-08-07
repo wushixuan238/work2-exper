@@ -47,6 +47,7 @@ class ConditionalMDN(nn.Module):
         self.feature_dim = feature_dim
         self.hidden_dim = feature_dim * hidden_dim_ratio
         self.time_embed_dim = time_embed_dim
+        self.condition_dim = condition_dim
 
         # 1. 时间步嵌入（类似 SimpleMLP 的 time_embed）
         self.time_mlp = nn.Sequential(
@@ -83,7 +84,15 @@ class ConditionalMDN(nn.Module):
         :param time_steps: 时间步 (B,)
         :param content_condition_tokens: 内容条件特征 (B, N, D_cond)
         """
+        # 修正：在解包之前检查张量的维度
+        if noisy_style_tokens.dim() == 2:
+            noisy_style_tokens = noisy_style_tokens.unsqueeze(1)
+
         b, n, d = noisy_style_tokens.shape
+
+        # 同样，为 content_condition_tokens 增加维度
+        if content_condition_tokens.dim() == 2:
+            content_condition_tokens = content_condition_tokens.unsqueeze(1)
 
         # 将输入展平以便MLP处理
         x = noisy_style_tokens.view(b * n, d)
