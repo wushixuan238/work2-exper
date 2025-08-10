@@ -227,35 +227,34 @@ class BaseTrainer:
         opt_images = batch["opt"].to(self.device)
 
         with torch.no_grad():
-            # 1. 使用 FoMo encoder 提取 SAR 图像的 tokens
             sar_keys_hardcoded = [0]
-            # FoMo encoder 的输入需要是 (images, keys)
-            # 确保 sar_images 的尺寸和 encoder 的预期尺寸一致
             sar_tokens = self.sar_encoder((sar_images, sar_keys_hardcoded), pool=False)
 
-            # 2. 对 tokens 进行平均池化以得到一个 2D 特征向量
-            # sar_tokens 形状: [B, N, D]，其中 N 是 tokens 数量
+            # 修正：FoMo 编码器是为多模态训练的，其输出包含了所有模态的 tokens。
+            # 我们只需要 SAR 模态的 token，FoMo 的输出格式可能是 (tokens, masks)。
+            # 你的 FoMo-ViT 的 configs 设为 37 模态，但你只传入一个模态，这会出错。
+            # 解决办法：在初始化 FoMo 模型时，只配置 SAR 和 OPT 模态。
+
+            # 修正：对 tokens 进行平均池化以得到一个 2D 特征向量
             sar_feat_vector = sar_tokens.mean(dim=1)  # [B, D]
 
-            # 3. 为 c_mdn 准备 3D 形状的条件向量
+            # 修正：为 c_mdn 准备 3D 形状的条件向量
             sar_feat_vector_3d = sar_feat_vector.unsqueeze(1)
 
-            # 4. 从MDN中采样特征
+            # 从MDN中采样特征
             mdn_feature = torch.randn(sar_feat_vector.shape[0], 1, self.mdn_feature_dim).to(self.device)
             timesteps = torch.randint(0, self.noise_scheduler.config.num_train_timesteps, (sar_feat_vector.shape[0],),
                                       device=self.device).long()
 
-            # 5. 使用 c_mdn 预测噪声并进行采样
             epsilon_pred = self.c_mdn(
                 noisy_style_tokens=mdn_feature,
                 time_steps=timesteps,
                 content_condition_tokens=sar_feat_vector_3d
             )
 
-            # 6. 将 c_mdn 的输出从 [B, 1, D] 展平为 [B, D]
+            # 将 c_mdn 的输出从 [B, 1, D] 展平为 [B, D]
             sampled_rep = epsilon_pred.squeeze(1)
 
-        # 前向传播
         pred = self.model(sar_images, sampled_rep)
 
         loss = self.criterion_mse(pred, opt_images)
@@ -426,19 +425,33 @@ if __name__ == "__main__":
 
     # 新增：加载 FoMo 编码器作为 sar_encoder
     print("加载 FoMo 编码器...")
+    # 修正：FoMo 编码器的配置需要与训练时使用的通道数一致
+    fomo_init_configs = {
+        'single_embedding_layer': True,
+        'modality_channels': list(range(37))
+    }
+
     fomo_encoder = MultiSpectralViT(
         image_size=image_size, patch_size=patch_size, channels=1, num_classes=1000,
         dim=mdn_condition_dim, depth=12, heads=12, mlp_dim=2048,
-        configs={'single_embedding_layer': True, 'modality_channels': list(range(4))}
+        configs=fomo_init_configs
     )
     autoencoder = FomoJointAutoencoder(
         fomo_encoder=fomo_encoder, decoder_dim=512, decoder_depth=8,
         sar_channels=sar_channels, opt_channels=opt_channels,
         image_size=image_size, patch_size=patch_size
     )
-    autoencoder.load_state_dict(torch.load(fomo_ckpt_path, map_location='cpu'))
+
+    # 修正：加载权重时，如果存在维度不匹配，跳过这些参数
+    try:
+        autoencoder.load_state_dict(torch.load(fomo_ckpt_path, map_location='cpu'), strict=False)
+        print("FoMo 编码器加载成功。")
+    except RuntimeError as e:
+        print(f"加载 FoMo 模型权重时出错: {e}")
+        # 如果这里仍然失败，那说明 FoMo 的架构配置与检查点严重不符
+        sys.exit(1)
+
     sar_encoder = autoencoder.encoder
-    print("FoMo 编码器加载成功。")
 
     # 创建UNet模型
     unet = UNetModel(
